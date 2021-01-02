@@ -5,7 +5,7 @@
 --Date Last Updated: 6-28-2020
 --TTS Version Created On: v12.4.3
 
-debugging = false
+debugging = true
 
 --[[GUID Static References]]
 startingDeck_GUID = "18c2e8"
@@ -19,6 +19,7 @@ Waiting_For_Game_Start_Message="Waiting For The Host (%s) To Start The Game"
 Waiting_For_Stacking_Message="Waiting For %s To Stack A Card, Or Draw Cards"
 Waiting_For_Wild_Card_Message="Waiting For %s To Pick A Color"
 Waiting_For_Trade_Message="Waiting For %s To Trade Their Cards With Another Player"
+Stack_On_Another_Card="May Stack: %s"
 
 --[[Table used to get quick references of the player colors in this game mode]]
 PLAYERS_REF = {
@@ -111,6 +112,7 @@ UI_ShowMainMenu = false         --UI toggle to show or hide the main menu
 UI_EnableStacking = false       --UI toggle to enable / disable 'all stacking' rules
 UI_EnableD2Stacking = false     --UI toggle to enable / disable 'only stack +2' rules
 UI_EnableD4Stacking = false     --UI Toggle to enable / disable 'only stack +4' rules
+UI_EnableReverseSkipStacking = false
 UI_EnableSevenZero = false      --UI toggle to enable / disable 7-0 rules
 UI_EnableCallingUno = true      --UI toggle to enable / disable calling uno
 UI_EnableAdditionalDeck = false --UI toggle to enable / disable playing with an additional deck
@@ -235,6 +237,26 @@ function onObjectPickUp(player_color, picked_up_object)
         broadcastToColor("Do Not Take Other Players Cards", player_color, getColorValueFromPlayer(player_color))
     end
 end--Function onObjectPickUp END
+
+function handleGameLoopStackingState(enter_object)
+    --During Stacking, we check if the card being played is the same face-card as the last played card.
+    if enter_object.getName() == lastCard_Name then
+        CheckCard(enter_object)
+
+    --If we are allowing ALL stacking, a +2 or a +4 card may be played to stack, regardless of what the lastCard is.
+    elseif UI_EnableStacking == true then
+        if enter_object.getName() == "+2" or enter_object.getName() == "+4" or enter_object.getName() == "reverse" or enter_object.getName() == "skip" then
+            CheckCard(enter_object)
+        else
+            RejectCard(enter_object,"You Must Play A Card That Stacks, Or Draw Cards")
+        end
+
+    --If we are NOT allowing ALL stacking, the entering card should have matched face
+    else
+        RejectCard(enter_object,"You Must Play A Card That Stacks, Or Draw Cards")
+    end
+end
+
 --[[This handles the logic of when a player tries to put a card into play]]
 function onObjectEnterScriptingZone(zone, enter_object)
 
@@ -260,25 +282,8 @@ function onObjectEnterScriptingZone(zone, enter_object)
                                         then--Check if the game loop is empty. Empty means it's the first turn and some logic checks can be assumed
                                             if coroutine.status(gameloopCoroutine) == "suspended"
                                             then--if the game loop is suspended, it is waiting for some sort of player response
-                                                if yieldState == YIELDSTATE.STACK
-                                                then--Our game loop is waiting for a player to stack cards
-                                                    if enter_object.getName() == lastCard_Name
-                                                    then--During Stacking, we check if the card being played is the same face-card as the last played card.
-                                                        CheckCard(enter_object)
-                                                    else
-                                                        if UI_EnableStacking == true
-                                                        then--If we are allowing ALL stacking, a +2 or a +4 card may be played to stack, regaurdless of what the lastCard is.
-                                                            if enter_object.getName() == "+2" or enter_object.getName() == "+4"
-                                                            then
-                                                                CheckCard(enter_object)
-                                                            else
-                                                                RejectCard(enter_object,"You Must Play A Card That Stacks, Or Draw Cards")
-                                                            end
-                                                        else--If we are NOT allowing ALL stacking, the entering card should have matched face
-                                                            RejectCard(enter_object,"You Must Play A Card That Stacks, Or Draw Cards")
-                                                        end
-                                                    end
-
+                                                if yieldState == YIELDSTATE.STACK then--Our game loop is waiting for a player to stack cards
+                                                    handleGameLoopStackingState(enter_object)
                                                 elseif yieldState == YIELDSTATE.WILD
                                                 then--Our game loop is waiting for a player to choose a wild color
                                                     RejectCard(enter_object, "You Must Pick A Wild Color")
@@ -491,30 +496,29 @@ function Reset_Game()
     playMattObject.setColorTint({1,1,1})
     rotationMattObject.setColorTint({1,1,1})
     rotationMattObject.setRotation({0,0,180})
-
-
-
 end--Function Reset_Game END
+
 --[[This function is called after we've determined that a card is allowed to be put into play. This makes sure that the card played is a playable card]]
 function CheckCard(currentCard)
-    if lastCard_Name == nil
-    then -- We check ifthe lastCard_Name is empty(nil), meaning this is the first card in the pile
+    -- We check ifthe lastCard_Name is empty(nil), meaning this is the first card in the pile
+    if lastCard_Name == nil then
         PlayCard(currentCard)
-    else -- Otherwise, we need to check our current card against the last card
-        if currentCard.getDescription() == "WILD"
-        then--Check for wild cards
-            PlayCard(currentCard)
-        elseif currentCard.getName() == lastCard_Name
-        then--check if the faces match
-            PlayCard(currentCard)
-        elseif currentCard.getDescription() == lastCard_Desc
-        then--check if the color matches
-            PlayCard(currentCard)
-        else--The card isn't wild and doesn't match face or color
-                RejectCard(currentCard,"This Card Cannot Be Played")
-        end
+    -- Otherwise, we need to check our current card against the last card
+    -- Check for wild cards
+    elseif currentCard.getDescription() == "WILD" then
+        PlayCard(currentCard)
+    --check if the faces match
+    elseif currentCard.getName() == lastCard_Name then
+        PlayCard(currentCard)
+    --check if the color matches
+    elseif currentCard.getDescription() == lastCard_Desc then
+        PlayCard(currentCard)
+    --The card isn't wild and doesn't match face or color
+    else
+        RejectCard(currentCard,"This Card Cannot Be Played")
     end
 end--Function CheckCard END
+
 --[[This function is used to return an invalid card to the players hand]]
 function RejectCard(currentCard, game_message)
 
@@ -1064,61 +1068,66 @@ function EndPlayerTurn()
 
 end--Function EndPlayerTurn END
 --[[This is the function that does most of the logic for special cards]]
+
 function GameLoop()
-
-
-    if lastCard_Name == "reverse"
-    then--Check if the card played was a reverse.
-
+    --Check if the card played was a reverse.
+    if lastCard_Name == "reverse" then
         clockwisePlay = not clockwisePlay
         rotationMattObject.setLock(false)
 
         if clockwisePlay == false then
             rotationMattObject.setRotation({0,0,0})
-        end
-
-        if clockwisePlay == true then
+        else
             rotationMattObject.setRotation({0,0,180})
         end
 
-        if #seatedPlayers == 2
-        then
+        if #seatedPlayers == 2 then
             EndPlayerTurn()
         end
         rotationMattObject.setLock(true)
         EndPlayerTurn()
 
-    elseif lastCard_Name == "skip"
-    then--Check if the card played was a skip
+        if stackingCounter > 0 and (UI_EnableStacking or UI_EnableReverseSkipStacking) then
+            showStackingCardPanelAndYield()
+
+            if not playerIsStacking then
+                DealCardsToColor(stackingCounter, currentPlayer.color)
+                stackingCounter = 0
+                EndPlayerTurn()
+            else
+                return
+            end
+        end
+    --Check if the card played was a skip
+    elseif lastCard_Name == "skip" then
         EndPlayerTurn()
-        EndPlayerTurn()
-    elseif lastCard_Name == "+2"
-    then--Check if the card played was a +2 card
+
+        if stackingCounter > 0 and (UI_EnableStacking or UI_EnableReverseSkipStacking) then
+            showStackingCardPanelAndYield()
+
+            if not playerIsStacking then
+                DealCardsToColor(stackingCounter, currentPlayer.color)
+                stackingCounter = 0
+                EndPlayerTurn()
+            else
+                return
+            end
+        else
+            EndPlayerTurn()
+        end
+    --Check if the card played was a +2 card
+    elseif lastCard_Name == "+2" then
         EndPlayerTurn()
         --Add To Our Stack Counter
         stackingCounter = stackingCounter + 2
-        if UI_EnableStacking == true or UI_EnableD2Stacking == true
-        then --Check if the game rules allow stacking +2 cards
-            --Update Appropriate UI Elemtents
 
-            UI.show("StackingCardPanel")
-            UI.show("MessagePanel")
-            UI.setAttribute("MessagePanelText", "Text", (Waiting_For_Stacking_Message):format(currentPlayer.steam_name))
-            UI.setAttribute("StackingCardPanel", "visibility", currentPlayer.color)
-            ToggleDrawButtons(false)
-
-            UI.setAttribute("StackingCardPanelText01", "Text", "Stack On Another +2 Card")
-            UI.setAttribute("StackingCardPanelText02", "Text", stackingCounter)
-            --we set playerIsStacking to true and yield out of the coroutine. If the player chooses to not stack
-            --we will set playerIsStacking to false then. Otherwise when the player plays a card (which is set up to only accent another +2 at this point)
-            --it will resume the coroutine at this point, and the playerIsStacking will still be true
-            playerIsStacking = true
-            yieldState = YIELDSTATE.STACK
-            coroutine.yield()
+        --Check if the game rules allow stacking +2 cards
+        if UI_EnableStacking == true or UI_EnableD2Stacking == true then 
+            showStackingCardPanelAndYield()
         end
 
-        if playerIsStacking == false
-        then--If the player is not stacking, we deal the appropriate amount of cards, and skip their turn
+        --If the player is not stacking, we deal the appropriate amount of cards, and skip their turn
+        if playerIsStacking == false then
             DealCardsToColor(stackingCounter, currentPlayer.color)
             stackingCounter = 0
 
@@ -1126,8 +1135,9 @@ function GameLoop()
         else--If the player is stacking, we end the game loop and move onto the next player
             return
         end
-    elseif lastCard_Desc == "WILD"
-    then--Check if the card played was a wild card
+
+    --Check if the card played was a wild card
+    elseif lastCard_Desc == "WILD" then
         UI.show("WildCardPanel")
         UI.show("MessagePanel")
         UI.setAttribute("MessagePanelText", "Text", (Waiting_For_Wild_Card_Message):format(currentPlayer.steam_name))
@@ -1139,32 +1149,15 @@ function GameLoop()
         coroutine.yield()
         EndPlayerTurn()
 
-        if lastCard_Name == "+4"
-        then
+        if lastCard_Name == "+4" then
             --Add To Our Stack Counter
             stackingCounter = stackingCounter + 4
 
-            if UI_EnableStacking == true or UI_EnableD4Stacking == true
-            then
-                --Update Appropriate UI Elemtents
-                UI.show("StackingCardPanel")
-                UI.show("MessagePanel")
-                UI.setAttribute("MessagePanelText", "Text", (Waiting_For_Stacking_Message):format(currentPlayer.steam_name))
-                UI.setAttribute("StackingCardPanel", "visibility", currentPlayer.color)
-                ToggleDrawButtons(false)
-
-                UI.setAttribute("StackingCardPanelText01", "Text", "Stack On Another +4 Wild Card")
-                UI.setAttribute("StackingCardPanelText02", "Text", stackingCounter)
-                --we set playerIsStacking to true and yield out of the coroutine. If the player chooses to not stack
-                --we will set playerIsStacking to false then. Otherwise when the player plays a card (which is set up to only accent another +2 at this point)
-                --it will resume the coroutine at this point, and the playerIsStacking will still be true
-                playerIsStacking = true
-                yieldState = YIELDSTATE.STACK
-                coroutine.yield()
+            if UI_EnableStacking == true or UI_EnableD4Stacking == true then
+                showStackingCardPanelAndYield()
             end
 
-            if playerIsStacking == false
-            then
+            if playerIsStacking == false then
                 --If the player is not stacking, we deal the appropriate amount of cards, and skip their turn
                 DealCardsToColor(stackingCounter, currentPlayer.color)
                 stackingCounter = 0
@@ -1207,6 +1200,37 @@ function GameLoop()
     end
     yieldState = nil
 end--function GameLoop END
+
+function showStackingCardPanelAndYield()
+    UI.show("StackingCardPanel")
+    UI.show("MessagePanel")
+    UI.setAttribute("MessagePanelText", "Text", (Waiting_For_Stacking_Message):format(currentPlayer.steam_name))
+    UI.setAttribute("StackingCardPanel", "visibility", currentPlayer.color)
+    ToggleDrawButtons(false)
+
+    UI.setAttribute("StackingCardPanelText01", "Text", getStackOptionsString())
+    UI.setAttribute("StackingCardPanelText02", "Text", stackingCounter)
+    --we set playerIsStacking to true and yield out of the coroutine. If the player chooses to not stack
+    --we will set playerIsStacking to false then. Otherwise when the player plays a card (which is set up to only accent another +2 at this point)
+    --it will resume the coroutine at this point, and the playerIsStacking will still be true
+    playerIsStacking = true
+    yieldState = YIELDSTATE.STACK
+    coroutine.yield()
+end
+
+function getStackOptionsString()
+    availableStackOptions = {}
+    if UI_EnableD2Stacking == true or UI_EnableStacking == true then
+        table.insert(availableStackOptions, "+2")
+    end
+    if UI_EnableD4Stacking or UI_EnableStacking then
+        table.insert(availableStackOptions, "+4")
+    end
+    if UI_EnableReverseSkipStacking or UI_EnableStacking then
+        table.insert(availableStackOptions, "Reverse, Skip")
+    end
+    return Stack_On_Another_Card:format(table.concat(availableStackOptions, ", "))
+end
 
 ---------------------------------------------------------------------------------------------------------------------------
 --UI RELATED FUNCTIONS
@@ -1579,36 +1603,18 @@ function TurnPassingRuleChange(n, value, id)
 end--Function CardDrawingRuleChange
 --[[This function is called by the Stacking Rule Toggle Buttons from the Main Menu]]
 function StackingRuleChange(n , value, id)
-    if value == "True"
-    then
-        if id == "allStackToggle"
-        then--If 'Stack +2 and +4 Cards' has been chosen
-            UI_EnableStacking = true
-        elseif id == "p2StackToggle"
-        then--If 'Only Stack +2 Cards' has been chosen
-            UI_EnableD2Stacking = true
-            --UI_EnableD4Stacking = false
-        elseif id == "p4StackToggle"
-        then--if 'Only Stack +4 Cards' has been chosen
-            UI_EnableD4Stacking = true
-        end
-    else
-        if id == "allStackToggle"
-        then--If 'Stack +2 and +4 Cards' has been chosen
-            UI_EnableStacking = false
-        elseif id == "p2StackToggle"
-        then--If 'Only Stack +2 Cards' has been chosen
-            UI_EnableD2Stacking = false
-            --UI_EnableD4Stacking = false
-        elseif id == "p4StackToggle"
-        then--if 'Only Stack +4 Cards' has been chosen
-            UI_EnableD4Stacking = false
-        end
+    if id == "allStackToggle" then --If 'Stack +2 and +4 Cards' has been chosen
+        UI_EnableStacking = value == "True"
+    elseif id == "p2StackToggle" then --If 'Only Stack +2 Cards' has been chosen
+        UI_EnableD2Stacking = value == "True"
+    elseif id == "p4StackToggle" then --if 'Only Stack +4 Cards' has been chosen
+        UI_EnableD4Stacking = value == "True"
+    elseif id == "reverseSkipStackToggle" then
+        UI_EnableReverseSkipStacking = value == "True"
     end
     
-    if debugging == true
-    then
-        DebugFunction("Stacking "..tostring(UI_EnableStacking),"D2 "..tostring(UI_EnableD2Stacking),"D4 "..tostring(UI_EnableD4Stacking))
+    if debugging == true then
+        DebugFunction("Stacking "..tostring(UI_EnableStacking),"D2 "..tostring(UI_EnableD2Stacking),"D4 "..tostring(UI_EnableD4Stacking),"RS "..tostring(UI_EnableReverseSkipStacking))
     end
 end--Function StackingRuleChange END
 --[[This function is called by the 7-0 Rule Toggle Button from the Main Menu]]
