@@ -145,7 +145,7 @@ describe("ChangeHands", function()
         assert.equal("Green", player4.getHandObjects()[1].owner.color)
         assert.equal(41, player4.getHandObjects()[1].meta)
 
-        ChangeHands(1, 2, 4)
+        RotateHands()
         waitMock.stored_calls[1].args[1]()
 
         assert.equal(1, #player1.getHandObjects())
@@ -203,8 +203,6 @@ describe("ChangeHands", function()
         function playerMock.getPlayerHand()
             return { rot_x = playerNumber, rot_y = playerNumber }
         end
-        print ("handobjects: " .. tostring(#handObjects))
-        print ("holdingobjects: " .. tostring(#holdingObjects))
         return playerMock
     end
 
