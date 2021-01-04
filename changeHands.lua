@@ -72,3 +72,12 @@ function ChangeHands(sendingPlayerIndex,receivingPlayerIndex,Recursive)
         end, 20)
 
 end--Function ChangeHands END
+
+function getNextSeatedPlayerIndex(currentIndex)
+    local newIndex = currentIndex + 1
+    if newIndex > #seatedPlayers
+    then
+        newIndex = 1
+    end
+    return newIndex
+end

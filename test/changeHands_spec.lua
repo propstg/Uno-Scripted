@@ -36,12 +36,14 @@ describe("ChangeHands", function()
         ChangeHands(1, 2, 0)
         waitMock.stored_calls[1].args[1]()
 
+        -- Still in player1 hand objects, because game is what actually moves them after position changes?
         assert.equal(1, #player1.getHandObjects())
         assert.equal("player 2 position", player1.getHandObjects()[1].position)
         assert.equal(2, player1.getHandObjects()[1].rotation[1])
         assert.equal(182, player1.getHandObjects()[1].rotation[2])
         assert.equal("Blue", player1.getHandObjects()[1].owner.color)
 
+        -- Still in player2 hand objects, because game is what actually moves them after position changes?
         assert.equal(1, #player2.getHandObjects())
         assert.equal("player 1 position", player2.getHandObjects()[1].position)
         assert.equal(1, player2.getHandObjects()[1].rotation[1])
@@ -102,9 +104,78 @@ describe("ChangeHands", function()
     end)
 
     it("should work correctly when called to rotate hands (0)", function()
-    
-    end)
+        local player1 = createMockPlayer(1, "Red")
+        local player2 = createMockPlayer(2, "Blue")
+        local player3 = createMockPlayer(3, "Yellow")
+        local player4 = createMockPlayer(4, "Green")
+        
+        _G.seatedPlayers = {player1, player2, player3, player4}
+        _G.Player = {
+            Red = player1,
+            Blue = player2,
+            Yellow = player3,
+            Green = player4,
+        }
 
+        assert.equal(1, #player1.getHandObjects())
+        assert.equal("player 1 position", player1.getHandObjects()[1].position)
+        assert.equal(1, player1.getHandObjects()[1].rotation[1])
+        assert.equal(181, player1.getHandObjects()[1].rotation[2])
+        assert.equal("Red", player1.getHandObjects()[1].owner.color)
+        assert.equal(11, player1.getHandObjects()[1].meta)
+
+        assert.equal(1, #player2.getHandObjects())
+        assert.equal("player 2 position", player2.getHandObjects()[1].position)
+        assert.equal(2, player2.getHandObjects()[1].rotation[1])
+        assert.equal(182, player2.getHandObjects()[1].rotation[2])
+        assert.equal("Blue", player2.getHandObjects()[1].owner.color)
+        assert.equal(21, player2.getHandObjects()[1].meta)
+
+        assert.equal(1, #player3.getHandObjects())
+        assert.equal("player 3 position", player3.getHandObjects()[1].position)
+        assert.equal(3, player3.getHandObjects()[1].rotation[1])
+        assert.equal(183, player3.getHandObjects()[1].rotation[2])
+        assert.equal("Yellow", player3.getHandObjects()[1].owner.color)
+        assert.equal(31, player3.getHandObjects()[1].meta)
+
+        assert.equal(1, #player4.getHandObjects())
+        assert.equal("player 4 position", player4.getHandObjects()[1].position)
+        assert.equal(4, player4.getHandObjects()[1].rotation[1])
+        assert.equal(184, player4.getHandObjects()[1].rotation[2])
+        assert.equal("Green", player4.getHandObjects()[1].owner.color)
+        assert.equal(41, player4.getHandObjects()[1].meta)
+
+        ChangeHands(1, 2, 4)
+        waitMock.stored_calls[1].args[1]()
+
+        assert.equal(1, #player1.getHandObjects())
+        assert.equal(11, player1.getHandObjects()[1].meta)
+        assert.equal("player 2 position", player1.getHandObjects()[1].position)
+        assert.equal(2, player1.getHandObjects()[1].rotation[1])
+        assert.equal(182, player1.getHandObjects()[1].rotation[2])
+        assert.equal("Blue", player1.getHandObjects()[1].owner.color)
+
+        assert.equal(1, #player2.getHandObjects())
+        assert.equal(21, player2.getHandObjects()[1].meta)
+        assert.equal("player 3 position", player2.getHandObjects()[1].position)
+        assert.equal(3, player2.getHandObjects()[1].rotation[1])
+        assert.equal(183, player2.getHandObjects()[1].rotation[2])
+        assert.equal("Yellow", player2.getHandObjects()[1].owner.color)
+
+        assert.equal(1, #player3.getHandObjects())
+        assert.equal(31, player3.getHandObjects()[1].meta)
+        assert.equal("player 4 position", player3.getHandObjects()[1].position)
+        assert.equal(4, player3.getHandObjects()[1].rotation[1])
+        assert.equal(184, player3.getHandObjects()[1].rotation[2])
+        assert.equal("Green", player3.getHandObjects()[1].owner.color)
+
+        assert.equal(1, #player4.getHandObjects())
+        assert.equal(41, player4.getHandObjects()[1].meta)
+        assert.equal("player 1 position", player4.getHandObjects()[1].position)
+        assert.equal(1, player4.getHandObjects()[1].rotation[1])
+        assert.equal(181, player4.getHandObjects()[1].rotation[2])
+        assert.equal("Red", player4.getHandObjects()[1].owner.color)
+    end)
 
     function createMockPlayer(playerNumber, playerColor, createHoldingCard)
         local playerMock = {}
