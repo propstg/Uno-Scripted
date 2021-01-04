@@ -33,7 +33,7 @@ describe("ChangeHands", function()
         assert.equal(182, player2.getHandObjects()[1].rotation[2])
         assert.equal("Blue", player2.getHandObjects()[1].owner.color)
 
-        ChangeHands(1, 2, 0)
+        SwapHands(1, 2)
         waitMock.stored_calls[1].args[1]()
 
         -- Still in player1 hand objects, because game is what actually moves them after position changes?
@@ -75,7 +75,7 @@ describe("ChangeHands", function()
         assert.equal("Blue", player2.getHandObjects()[1].owner.color)
         assert.equal(21, player2.getHandObjects()[1].meta)
 
-        ChangeHands(1, 2, 0)
+        SwapHands(1, 2)
         waitMock.stored_calls[1].args[1]()
 
         assert.equal(2, #player1.getHandObjects())
