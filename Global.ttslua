@@ -1,4 +1,5 @@
 require("changeHands")
+require("sortHand")
 
 --[[ Lua code. See documentation: https://api.tabletopsimulator.com/ --]]
 --TableTop Simulator UNO Scripted
