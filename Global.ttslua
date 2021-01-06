@@ -1,3 +1,5 @@
+require("changeHands")
+
 --[[ Lua code. See documentation: https://api.tabletopsimulator.com/ --]]
 --TableTop Simulator UNO Scripted
 --Steam Workshop ID : 814121724
