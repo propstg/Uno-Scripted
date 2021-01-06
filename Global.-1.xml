@@ -119,6 +119,9 @@
                     <Toggle id="p4StackToggle"
                             onValueChanged="Global/StackingRuleChange"
                             resizeTextForBestFit="true">Allow +4 Stacking</Toggle>
+                    <Toggle id="reverseSkipStackToggle"
+                            onValueChanged="Global/StackingRuleChange"
+                            resizeTextForBestFit="true">Allow Reverse/Skip Stacking</Toggle>
                 </VerticalLayout>
           </VerticalLayout>
         </cell>
